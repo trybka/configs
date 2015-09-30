@@ -22,7 +22,7 @@ setopt hist_no_functions      # don't store functions
 setopt hist_allow_clobber     # let historic cmds clobber on redirect
 setopt extended_history       # saves time and execution time
 setopt extended_glob          # allow negative globbing
-setopt share_history					# share history!
+setopt share_history          # share history!
 
 setopt correct                # auto correction
 setopt interactivecomments
@@ -45,13 +45,54 @@ WATCHFMT='%w %t: %n %a %l from %M'
 LOGTERM="$TERM"
 export TERM="$TERM"  # old zsh doesn't load termcap/terminfo until this happens
 
-export CLICOLOR=1
-export LSCOLORS=gxBxhxDxfxhxhxhxhxcxcx
+zmodload -i zsh/termcap
 
 # Prompts
 autoload -Uz promptinit
 promptinit
-prompt adam1
+
+function setup_prompt {
+  autoload colors zsh/terminfo
+  if [[ "$terminfo[colors]" -ge 8 ]]; then
+    colors
+  fi
+  for color in RED GREEN YELLOW BLUE MAGENTA CYAN WHITE; do
+    eval PR_$color='%{$terminfo[bold]$fg[${(L)color}]%}'
+    eval PR_LIGHT_$color='%{$fg[${(L)color}]%}'
+    (( count = $count + 1 ))
+  done
+  PR_NO_COLOUR="%{$terminfo[sgr0]%}"
+
+  typeset -gH reset="$(echotc me)"
+  typeset -gH bold="$(echotc md)"
+  typeset -gH underline="$(echotc us)"
+  typeset -gH reverse="$(echotc mr)"
+  # set screen hardstatus, or xterm icon name and window title
+  function hardstatus { print -n "\e]0;" && print -Rn "$@" && print -n "\a" }
+  # set screen window title
+  function windowname { [[ -n "$WINDOW" ]] && print -n "\ek" && print -Rn "$@" && print -n "\e\\" }
+
+  function precmd {
+    print -Rn "$reset$bold$PR_RED"
+    jobs
+    hardstatus "$(print -Pn "${WINDOW:-_} %2m:%~ %%")"
+    windowname "$(print -Pn "%2~%#")"
+  }
+  function preexec {
+    print -n "$reset"
+    local cmd="$1"
+    if [[ "$cmd[(w)1]" == "fg" ]]; then
+      cmd="$cmd %%"
+      jobs "$cmd[(w)2]" 2> /dev/null | read cmd cmd cmd cmd
+    fi
+    cmd="$(print -Rn " $cmd" | tr -cs '[:print:]' ' ')"
+    hardstatus "$(print -Pn "${WINDOW:-_} [%m:%~]")""$cmd"
+    windowname "$(print -Pn "%2~:")""$cmd"
+  }
+  typeset -gH PS1="%{$reset$bold%}[%{$PR_GREEN%}%n%{$PR_WHITE%}@%{$PR_CYAN%}%2m%{$PR_WHITE%}:%{$PR_YELLOW%}%~%{$reset$bold%}]%# "
+}
+
+setup_prompt
 
 # Use modern completion system
 autoload -Uz compinit
@@ -62,7 +103,6 @@ zstyle ':completion:*' completer _expand _complete _correct _approximate
 zstyle ':completion:*' format 'Completing %d'
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*' menu select=2
-zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
 zstyle ':completion:*' list-colors ''
 zstyle ':completion:*' list-prompt %SAt %p: Hit TAB for more, or the character to insert%s
 zstyle ':completion:*' matcher-list '' 'm:{a-z}={A-Z}' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=* l:|=*'
@@ -85,9 +125,6 @@ zle -N edit-command-line
 
 bindkey -e
 bindkey '\ee' edit-command-line
-
-# ADT
-export PATH=${PATH}:${ANDROID_SDK_HOME}/tools:${ANDROID_SDK_HOME}/platform-tools
 
 # User specific aliases and functions go here (override system defaults)
 PATH=${PATH}:${HOME}/bin
@@ -122,6 +159,18 @@ alias vared='IFS="
 
 export LANG=en_US.UTF-8
 
-# Fix up some colors...
-LS_COLORS="ow=01;96:di=01;96"
-export LS_COLORS
+if [ "$(uname)" == "Linux" ]; then
+  alias ls='ls --color=auto --classify'
+  eval "$(dircolors -b)"
+  zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+  export LS_COLORS="ow=01;96:di=01;96"
+elif [ "$(uname)" == "Darwin" ]; then
+  export CLICOLOR=1
+  export LSCOLORS=gxBxhxDxfxhxhxhxhxcxcx
+fi
+
+# Get corp stuff if available.
+if [ -f $HOME/.zshcorprc ]; then
+  source $HOME/.zshcorprc
+fi
+
