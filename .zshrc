@@ -159,12 +159,12 @@ alias vared='IFS="
 
 export LANG=en_US.UTF-8
 
-if [ "$(uname)" == "Linux" ]; then
+if [[ "$(uname)" == "Linux" ]]; then
   alias ls='ls --color=auto --classify'
   eval "$(dircolors -b)"
   zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
   export LS_COLORS="ow=01;96:di=01;96"
-elif [ "$(uname)" == "Darwin" ]; then
+elif [[ "$(uname)" == "Darwin" ]]; then
   export CLICOLOR=1
   export LSCOLORS=gxBxhxDxfxhxhxhxhxcxcx
 fi
